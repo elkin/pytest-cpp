@@ -10,6 +10,8 @@ from pytest_cpp.google import GoogleTestFacade
 FACADES = [GoogleTestFacade, BoostTestFacade]
 DEFAULT_MASKS = ('test_*', '*_test')
 
+_ARGUMENTS = 'arguments'
+
 
 def pytest_collect_file(parent, path):
     try:
@@ -19,8 +21,15 @@ def pytest_collect_file(parent, path):
         is_executable = False
     if not is_executable:
         return
-    masks = parent.config.getini('cpp_files') or DEFAULT_MASKS
-    test_args = parent.config.getini('arguments') or ()
+
+    config = parent.config
+    masks = config.getini('cpp_files') or DEFAULT_MASKS
+
+    test_args = config.getoption(_ARGUMENTS)
+    if test_args:
+        test_args = test_args.split()
+    else:
+        test_args = config.getini(_ARGUMENTS) or ()
 
     if not parent.session.isinitpath(path):
         for pat in masks:
@@ -37,10 +46,13 @@ def pytest_addoption(parser):
     parser.addini("cpp_files", type="args",
         default=DEFAULT_MASKS,
         help="glob-style file patterns for C++ test module discovery")
-    parser.addini('arguments',
+    parser.addini(_ARGUMENTS,
                   type='args',
                   default='',
                   help='Additional arguments for test executables')
+
+    group = parser.getgroup('cpp tests')
+    group.addoption('--arguments', help='Additional test arguments')
 
 
 class CppFile(pytest.File):
