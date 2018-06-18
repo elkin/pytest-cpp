@@ -10,7 +10,7 @@ from pytest_cpp.google import GoogleTestFacade
 FACADES = [GoogleTestFacade, BoostTestFacade]
 DEFAULT_MASKS = ('test_*', '*_test')
 
-_ARGUMENTS = 'arguments'
+_ARGUMENTS = 'cpp_arguments'
 
 
 def pytest_collect_file(parent, path):
@@ -52,7 +52,7 @@ def pytest_addoption(parser):
                   help='Additional arguments for test executables')
 
     group = parser.getgroup('cpp tests')
-    group.addoption('--arguments', help='Additional test arguments')
+    group.addoption('--cpp-arguments', help='Additional test arguments')
 
 
 class CppFile(pytest.File):

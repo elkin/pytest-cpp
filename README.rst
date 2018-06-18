@@ -42,7 +42,7 @@ Usage
 =====
 
 Once installed, when py.test runs it will search and run tests
-founds in executable files, detecting if the suites are
+found in executable files, detecting if the suites are
 Google or Boost tests automatically.
 
 You can configure which files are tested for suites by using the ``cpp_files``
@@ -54,6 +54,17 @@ ini configuration:
     cpp_files=test_suite*
 
 By default matches ``test_*`` and ``*_test`` executable files.
+
+Additional arguments to the C++ tests can be provided with the option
+``--cpp-arguments`` or with the ``cpp_arguments`` ini configuration.
+``cpp_arguments`` can have multiple values separated by spaces.
+
+For example:
+
+.. code-block:: ini
+
+    [pytest]
+    cpp_arguments=-v --log-dir=logs
 
 Requirements
 ============
