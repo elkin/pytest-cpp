@@ -11,8 +11,12 @@ struct InitTests {
         throw std::runtime_error("This is a global fixture init failure");
     }
 };
-BOOST_GLOBAL_FIXTURE(InitTests);
 
+#ifdef BOOST_TEST_GLOBAL_FIXTURE
+BOOST_TEST_GLOBAL_FIXTURE(InitTests);
+#else
+BOOST_GLOBAL_FIXTURE(InitTests);
+#endif
 
 BOOST_AUTO_TEST_CASE( test_dummy )
 {
