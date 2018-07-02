@@ -1,9 +1,12 @@
+import io
 import os
+import re
+import shutil
 import subprocess
 import tempfile
+import pkg_resources
 from xml.etree import ElementTree
-import io
-import shutil
+
 from pytest_cpp.error import CppTestFailure
 
 
@@ -11,6 +14,9 @@ class BoostTestFacade(object):
     """
     Facade for BoostTests.
     """
+
+    _BOOST_VERSION = re.compile(r'Boost\s*:\s*(?P<version>\d+\.\d+.\d+)\s*')
+    _MIN_BOOST_VERSION_WITH_XML_SUPPORT = pkg_resources.parse_version('1.63.0')
 
     @classmethod
     def is_test_suite(cls, executable):
@@ -27,6 +33,20 @@ class BoostTestFacade(object):
         # unfortunately boost doesn't provide us with a way to list the tests
         # inside the executable, so the test_id is a dummy placeholder :(
         return [os.path.basename(os.path.splitext(executable)[0])]
+
+    @classmethod
+    def is_xml_report_supported(cls, executable):
+        try:
+            output = subprocess.check_output([executable, '--build_info'])
+            match = BoostTestFacade._BOOST_VERSION.search(
+                output.decode('utf-8'))
+            if not match:
+                return False
+            boost_version = pkg_resources.parse_version(match.group('version'))
+            return boost_version >= \
+                BoostTestFacade._MIN_BOOST_VERSION_WITH_XML_SUPPORT
+        except (subprocess.CalledProcessError, OSError):
+            return False
 
     def run_test(self, executable, test_id, test_args=()):
 
