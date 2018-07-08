@@ -35,7 +35,10 @@ def pytest_collect_file(parent, path):
             return
     for facade_class in FACADES:
         if facade_class.is_test_suite(str(path)):
-            return CppFile(path, parent, facade_class(), test_args)
+            return CppFile(path,
+                           parent,
+                           facade_class.create_facade(str(path)),
+                           test_args)
 
 
 def pytest_addoption(parser):

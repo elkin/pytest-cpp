@@ -1,9 +1,10 @@
 import os
 import subprocess
 import tempfile
-from xml.etree import ElementTree
 
 import pytest
+
+from pytest_cpp import junit_xml
 from pytest_cpp.error import CppTestFailure
 
 
@@ -22,6 +23,10 @@ class GoogleTestFacade(object):
             return False
         else:
             return '--gtest_list_tests' in output
+
+    @classmethod
+    def create_facade(cls, _):
+        return cls()
 
     def list_tests(self, executable):
         """
@@ -76,7 +81,7 @@ class GoogleTestFacade(object):
                                returncode=e.returncode))
                 return [failure]
 
-        results = self._parse_xml(xml_filename)
+        results = junit_xml.parse(xml_filename)
         os.remove(xml_filename)
         for (executed_test_id, failures, skipped) in results:
             if executed_test_id == test_id:
@@ -96,23 +101,6 @@ class GoogleTestFacade(object):
 
     def _get_temp_xml_filename(self):
         return tempfile.mktemp()
-
-    def _parse_xml(self, xml_filename):
-        root = ElementTree.parse(xml_filename)
-        result = []
-        for test_suite in root.findall('testsuite'):
-            test_suite_name = test_suite.attrib['name']
-            for test_case in test_suite.findall('testcase'):
-                test_name = test_case.attrib['name']
-                failures = []
-                failure_elements = test_case.findall('failure')
-                for failure_elem in failure_elements:
-                    failures.append(failure_elem.text)
-                skipped = test_case.attrib['status'] == 'notrun'
-                result.append(
-                    (test_suite_name + '.' + test_name, failures, skipped))
-
-        return result
 
 
 class GoogleTestFailure(CppTestFailure):
