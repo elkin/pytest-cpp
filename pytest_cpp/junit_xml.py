@@ -1,7 +1,10 @@
+import os.path
 from xml.etree import ElementTree
 
 
-def parse(filename):
+def get_failures(filename):
+    assert os.path.exists(filename)
+
     root = ElementTree.parse(filename)
     result = []
     for test_suite in root.findall('testsuite'):
@@ -13,9 +16,9 @@ def parse(filename):
             for failure_elem in failure_elements:
                 failures.append(failure_elem.text)
 
-            # errors = test_case.findall('error')
-            # for error in errors:
-            #     failures.append()
+            errors = test_case.findall('error')
+            for error in errors:
+                failures.append(error.text)
             skipped = test_case.attrib['status'] == 'notrun'
             result.append(
                 (test_suite_name + '.' + test_name, failures, skipped))

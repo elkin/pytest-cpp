@@ -81,7 +81,7 @@ class GoogleTestFacade(object):
                                returncode=e.returncode))
                 return [failure]
 
-        results = junit_xml.parse(xml_filename)
+        results = junit_xml.get_failures(xml_filename)
         os.remove(xml_filename)
         for (executed_test_id, failures, skipped) in results:
             if executed_test_id == test_id:

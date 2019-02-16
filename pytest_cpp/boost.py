@@ -47,19 +47,46 @@ class BoostTestFacade(object):
 
     @classmethod
     def create_facade(cls, executable):
-        output = subprocess.check_output([executable, '--help'],
-                                         stderr=subprocess.STDOUT,
-                                         universal_newlines=True)
+        try:
+            output = subprocess.check_output([executable, '--help'],
+                                             stderr=subprocess.STDOUT,
+                                             universal_newlines=True)
 
-        if '--list_content' in output:
-            list_test_fn = BoostTestFacade._list_tests
-        else:
             list_test_fn = BoostTestFacade._list_tests_fallback
+            # if '--list_content' in output:
+            #     list_test_fn = BoostTestFacade._list_tests
 
-        if BoostTestFacade._JUNIT_LOG_FORMAT.search(output):
-            run_test_fn = BoostTestFacade._run_tests
+            run_test_fn = BoostTestFacade._run_tests_fallback
+            if BoostTestFacade._JUNIT_LOG_FORMAT.search(output):
+                run_test_fn = BoostTestFacade._run_tests
 
-        return BoostTestFacade.Facade(list_test_fn, run_test_fn)
+            return BoostTestFacade.Facade(list_test_fn, run_test_fn)
+        except subprocess.CalledProcessError:
+            return BoostTestFacade.Facade(BoostTestFacade._list_tests_fallback,
+                                          BoostTestFacade._run_tests_fallback)
+
+    def run_test(self, executable, test_id, test_args=()):
+        try:
+            output = subprocess.check_output([executable, '--help'],
+                                             stderr=subprocess.STDOUT,
+                                             universal_newlines=True)
+
+            if BoostTestFacade._JUNIT_LOG_FORMAT.search(output):
+                return BoostTestFacade._run_tests(executable,
+                                                  test_id,
+                                                  test_args)
+            else:
+                return BoostTestFacade._run_tests_fallback(executable,
+                                                           test_id,
+                                                           test_args)
+        except subprocess.CalledProcessError:
+            return BoostTestFacade._run_tests_fallback(executable,
+                                                       test_id,
+                                                       test_args)
+
+    def list_tests(self, executable):
+        #TODO: use newer function for newer Boost
+        return BoostTestFacade._list_tests_fallback(executable)
 
     @staticmethod
     def _list_tests_fallback(executable):
@@ -120,77 +147,82 @@ class BoostTestFacade(object):
                 return None
 
         temp_dir = tempfile.mkdtemp()
-        log_xml = os.path.join(temp_dir, 'log.xml')
-        report_xml = os.path.join(temp_dir, 'report.xml')
-        args = [
-            executable,
-            '--output_format=XML',
-            '--log_sink=%s' % log_xml,
-            '--report_sink=%s' % report_xml,
-        ]
-        args.extend(test_args)
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        stdout, _ = p.communicate()
+        try:
+            log_xml = os.path.join(temp_dir, 'log.xml')
+            report_xml = os.path.join(temp_dir, 'report.xml')
+            args = [
+                executable,
+                '--output_format=XML',
+                '--log_sink=%s' % log_xml,
+                '--report_sink=%s' % report_xml,
+            ]
+            args.extend(test_args)
+            p = subprocess.Popen(args,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT)
+            stdout, _ = p.communicate()
 
-        log = read_file(log_xml)
-        report = read_file(report_xml)
+            log = read_file(log_xml)
+            report = read_file(report_xml)
 
-        if p.returncode not in (0, 200, 201):
-            msg = ('Internal Error: calling {executable} '
-                   'for test {test_id} failed (returncode={returncode}):\n'
-                   'output:{stdout}\n'
-                   'log:{log}\n'
-                   'report:{report}')
-            failure = BoostTestFailure(
-                '<no source file>',
-                linenum=0,
-                contents=msg.format(executable=executable,
-                                    test_id=test_id,
-                                    stdout=stdout,
-                                    log=log,
-                                    report=report,
-                                    returncode=p.returncode))
-            return [failure]
+            if p.returncode not in (0, 200, 201):
+                msg = ('Internal Error: calling {executable} '
+                       'for test {test_id} failed (returncode={returncode}):\n'
+                       'output:{stdout}\n'
+                       'log:{log}\n'
+                       'report:{report}')
+                failure = BoostTestFailure(
+                    '<no source file>',
+                    linenum=0,
+                    contents=msg.format(executable=executable,
+                                        test_id=test_id,
+                                        stdout=stdout,
+                                        log=log,
+                                        report=report,
+                                        returncode=p.returncode))
+                return [failure]
 
-        if report is not None and (
-                report.startswith('Boost.Test framework internal error: ') or
-                report.startswith('Test setup error: ')):
-            # boost.test doesn't do XML output on fatal-enough errors.
-            failure = BoostTestFailure('unknown location', 0, report)
-            return [failure]
+            if report is not None and (
+                    report.startswith('Boost.Test framework internal error: ') or
+                    report.startswith('Test setup error: ')):
+                # boost.test doesn't do XML output on fatal-enough errors.
+                failure = BoostTestFailure('unknown location', 0, report)
+                return [failure]
 
-        results = BoostTestFacade._parse_log(log=log)
-        shutil.rmtree(temp_dir)
-        if results:
-            return results
+            results = BoostTestFacade._parse_log(log=log)
+            if results:
+                return results
+        finally:
+            shutil.rmtree(temp_dir)
 
     @staticmethod
     def _run_tests(executable, test_id, test_args=()):
-        log_xml = tempfile.mkstemp(suffix='log.xml')
-        args = [
-            executable,
-            '--log_format=JUNIT'
-            '--log_sink=%s' % log_xml,
-        ]
-        args.extend(test_args)
-        p = subprocess.Popen(args,
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT)
-        stdout, _ = p.communicate()
+        _, log_xml = tempfile.mkstemp(suffix='log.xml')
+        try:
+            args = [
+                executable,
+                '--log_format=JUNIT',
+                '--log_sink=%s' % log_xml,
+            ]
+            args.extend(test_args)
+            p = subprocess.Popen(args,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT)
+            stdout, _ = p.communicate()
 
-        results = junit_xml.parse(log_xml)
-        for (executed_test_id, failures, skipped) in results:
-            if executed_test_id == test_id:
-                if failures:
-                    return [BoostTestFailure(x) for x in failures]
-                elif skipped:
-                    pytest.skip()
-                else:
-                    return None
-
-        os.remove(log_xml)
-        if results:
-            return results
+            results = junit_xml.get_failures(log_xml)
+            for (executed_test_id, failures, skipped) in results:
+                if executed_test_id == test_id:
+                    if failures:
+                        return [BoostTestFailure(x) for x in failures]
+                    elif skipped:
+                        pytest.skip()
+                    else:
+                        return None
+            if results:
+                return results
+        finally:
+            os.remove(log_xml)
 
     @staticmethod
     def _parse_log(log):

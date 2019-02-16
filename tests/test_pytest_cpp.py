@@ -156,12 +156,12 @@ def test_boost_fixture_setup_error(exes):
     fail1 = failures[0]
     colors = ('red', 'bold')
 
-    if BoostTestFacade.is_xml_report_supported(exes.get('boost_success')):
-        assert fail1.get_lines() == [
-            ('std::runtime_error: This is a global fixture init failure', colors)]
-    else:
-        assert fail1.get_lines() == [
-            ('Test setup error: std::runtime_error: This is a global fixture init failure', colors)]
+    # if BoostTestFacade.is_xml_report_supported(exes.get('boost_success')):
+    #     assert fail1.get_lines() == [
+    #         ('std::runtime_error: This is a global fixture init failure', colors)]
+    # else:
+    assert fail1.get_lines() == [
+        ('Test setup error: std::runtime_error: This is a global fixture init failure', colors)]
 
     assert fail1.get_file_reference() == ("unknown location", 0)
 
